@@ -1,0 +1,64 @@
+version: "3.7"
+services:
+  rs_proxy:
+    container_name: "rs_proxy"
+    build:
+      context: .
+      dockerfile: project/DockerFile
+    env_file: ./.env
+    entrypoint: ["python", "main.py"]
+    links:
+      - rs_redis:redis
+      - rs_mongodb:rs_mongodb
+    depends_on:
+      - rs_mongodb
+      - rs_redis
+    ports:
+      - $HTTP_PORT:$HTTP_PORT
+    volumes:
+      - ./logs:/usr/src/app/logs
+
+  rs_worker:
+    container_name: "rs_worker"
+    build:
+      context: .
+      dockerfile: project/DockerFile
+    env_file: ./.env
+    entrypoint: ["rq", "worker", "-u", "redis://redis:6379/1"]
+    depends_on:
+      - rs_mongodb
+    links:
+      - rs_redis:redis
+      - rs_mongodb:mongodb
+    volumes:
+      - ./logs:/usr/src/app/logs
+
+  rs_redis:
+    container_name: "rs_redis"
+    restart: always
+    image: redis:latest
+    ports:
+      - 6379:6379
+
+  rs_mongodb:
+    container_name: "rs_mongodb"
+    image: mongo:latest
+    restart: always
+    env_file: ./.env
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: proxydb
+    ports:
+      - 27017:27017
+    volumes:
+      - ./database/volume:/data/db
+      - ./database/001_database.js:/docker-entrypoint-initdb.d/001_database.js:ro
+
+volumes:
+  mongodb_data_container:
+
+
+networks:
+  default:
+    driver: bridge

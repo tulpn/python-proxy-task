@@ -1,0 +1,23 @@
+<%inherit file="layout.html"/>
+
+<%block name="header">
+    <title>Status Page </title>
+</%block>
+
+
+<%
+    startedOn = data['latest_server_status'].strftime("%m/%d/%Y, %H:%M:%S")
+%>
+
+
+
+<h1>Status Page</h1>
+<p>
+    <strong>Proxy Live since:</strong>
+    <span>${startedOn}</span>
+</p>
+
+<p>
+    <strong>Requests Handled Total:</strong>
+    <span>${data['count_requests']}</span>
+</p>
