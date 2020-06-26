@@ -3,17 +3,23 @@ import json
 import logging
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from socketserver import ThreadingMixIn
 
 import requests
 from mongoengine import *
 
 from .settings import *
-from .helper import sign_with_jwt, build_payload, render_status_template, save_server_status, get_proxy_status_details, enqueue_request_log
+from .helper import sign_with_jwt, build_payload, render_status_template, save_server_status, get_proxy_status_details, \
+    enqueue_request_log
 
 from .models import ServerStatus
 
 # Setup Logging
 _logger = logging.getLogger("console" if DEBUG else "")
+
+
+class ThreadedProxyServer(ThreadingMixIn, HTTPServer):
+    pass
 
 
 class ProxyServer(BaseHTTPRequestHandler):
@@ -44,6 +50,9 @@ class ProxyServer(BaseHTTPRequestHandler):
             return
 
         if self.path == "/status":
+            # put a timer here, to show async correct:
+            time.sleep(1)
+
             status_data = get_proxy_status_details()
             html = render_status_template(status_data)
             self.send_response(200)
@@ -151,8 +160,13 @@ def run():
     except Exception as e:
         _logger.error("Could not connect to database service")
 
-    # Setup the HTTP Server for listening and using our own ProxyServer Instance
-    proxyService = HTTPServer((PROXY_HOST_NAME, PROXY_PORT), ProxyServer)
+    # Setup the HTTP Server for listening and using our own ProxyServer Instance with Async handling
+    proxyService = ThreadedProxyServer((PROXY_HOST_NAME, PROXY_PORT), ProxyServer)
+    # Non Async Service
+    #proxyService = HTTPServer((PROXY_HOST_NAME, PROXY_PORT), ProxyServer)
+
+    # prevent issues with multiple listeners
+    proxyService.allow_reuse_address = True
 
     # Save that the server started
     save_server_status(ServerStatus.STATUS_START)
